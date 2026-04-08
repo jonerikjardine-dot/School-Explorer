@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seattle Schools — Green Space Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --ink: #0f0e0c;
+    --paper: #f5f2ec;
+    --paper-dark: #ede9e0;
+    --accent: #2d5a1b;
+    --accent-light: #4a8a2e;
+    --warn: #c94f1e;
+    --warn-light: #e87040;
+    --gold: #b8860b;
+    --muted: #7a7060;
+    --border: #d4cfc4;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', serif;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 28px 18px;
+    border-bottom: 3px solid var(--accent-light);
+  }
+
+  header h1 {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+
+  header h1 em {
+    font-style: italic;
+    color: #a8c990;
+  }
+
+  header p {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: #9a9080;
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* CONTROLS */
+  .controls {
+    background: var(--ink);
+    padding: 0 28px 16px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    border-bottom: 1px solid #2a2820;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .control-group label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #6a6458;
+  }
+
+  select {
+    background: #1e1d1a;
+    color: var(--paper);
+    border: 1px solid #3a3830;
+    border-radius: 3px;
+    padding: 7px 28px 7px 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236a6458'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    min-width: 180px;
+    transition: border-color 0.15s;
+  }
+
+  select:focus { outline: none; border-color: var(--accent-light); }
+  select:hover { border-color: #5a5848; }
+
+  .stats-bar {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    padding-bottom: 2px;
+  }
+
+  .stat-pill {
+    text-align: right;
+  }
+
+  .stat-pill .num {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--paper);
+  }
+
+  .stat-pill .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #6a6458;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: calc(100vh - 130px);
+    min-height: 500px;
+  }
+
+  /* MAP */
+  #map {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  .leaflet-container {
+    background: #e8e4dc;
+    font-family: var(--sans);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--paper-dark);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--paper);
+  }
+
+  .sidebar-header h2 {
+    font-family: var(--serif);
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.2px;
+  }
+
+  .sidebar-header .sort-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+  }
+
+  .sidebar-header .sort-row span {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+  }
+
+  .sort-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 3px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.12s;
+  }
+
+  .sort-btn.active, .sort-btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* SCHOOL LIST */
+  .school-list {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .school-list::-webkit-scrollbar { width: 4px; }
+  .school-list::-webkit-scrollbar-track { background: transparent; }
+  .school-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .school-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: start;
+  }
+
+  .school-row:hover { background: var(--paper); }
+  .school-row.active { background: var(--ink); }
+  .school-row.active .school-name { color: var(--paper); }
+  .school-row.active .school-meta { color: #6a6458; }
+  .school-row.active .metric-val { color: var(--paper); }
+  .school-row.active .metric-lbl { color: #5a5848; }
+
+  .school-name {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.3;
+    text-transform: capitalize;
+  }
+
+  .school-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .school-metrics {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+  }
+
+  .metric-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .metric-lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 16px;
+    border-top: 2px solid var(--accent-light);
+    min-height: 140px;
+    transition: all 0.2s;
+  }
+
+  .detail-panel .no-selection {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    color: #4a4840;
+    line-height: 1.5;
+  }
+
+  .detail-name {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 1.2;
+    margin-bottom: 10px;
+    color: var(--paper);
+  }
+
+  .detail-name em { font-style: italic; color: #a8c990; }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .detail-stat {
+    background: #1e1d1a;
+    border-radius: 3px;
+    padding: 8px 10px;
+  }
+
+  .detail-stat .val {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--paper);
+  }
+
+  .detail-stat .val.warn { color: var(--warn-light); }
+  .detail-stat .val.ok { color: #7bc96f; }
+  .detail-stat .val.mid { color: #f0c040; }
+
+  .detail-stat .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #5a5848;
+    margin-top: 4px;
+  }
+
+  /* LEGEND */
+  .legend-strip {
+    padding: 8px 16px;
+    background: var(--paper);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .legend-strip span {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* LEAFLET CUSTOM */
+  .leaflet-popup-content-wrapper {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 4px;
+    border: 1px solid #3a3830;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .leaflet-popup-tip { background: var(--ink); }
+
+  .leaflet-popup-content {
+    margin: 12px 14px;
+    font-family: var(--sans);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .popup-name {
+    font-family: var(--serif);
+    font-size: 14px;
+    font-weight: 300;
+    margin-bottom: 8px;
+    color: var(--paper);
+  }
+
+  .popup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .popup-stat { background: #1e1d1a; padding: 6px 8px; border-radius: 2px; }
+  .popup-stat .pv { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--paper); }
+  .popup-stat .pl { font-family: var(--mono); font-size: 9px; color: #5a5848; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .level-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    margin-bottom: 8px;
+  }
+
+  .badge-elem { background: #1a3a4a; color: #7ab8d4; }
+  .badge-mid { background: #2a3a1a; color: #8dc87a; }
+  .badge-high { background: #3a2a1a; color: #d4a870; }
+  .badge-k8 { background: #3a1a2a; color: #d47ab8; }
+  .badge-other { background: #2a2a2a; color: #8a8a8a; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Seattle Public Schools — <em>Green Space Explorer</em></h1>
+  <p>95 schools · impervious surface, tree canopy, heat island & more · data: Seattle City GIS / Climate Central / American Forests</p>
+</header>
+
+<div class="controls">
+  <div class="control-group">
+    <label>School level</label>
+    <select id="levelFilter" onchange="applyFilters()">
+      <option value="all">All schools</option>
+      <option value="ELEMENTARY">Elementary</option>
+      <option value="MIDDLE">Middle school</option>
+      <option value="HIGH">High school</option>
+      <option value="K-8">K-8</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Color map by</label>
+    <select id="metricSelect" onchange="applyFilters()">
+      <option value="imperv">Impervious surface %</option>
+      <option value="canopy">Tree canopy %</option>
+      <option value="grass">Grass coverage %</option>
+      <option value="building">Building coverage %</option>
+      <option value="uhi">Heat island intensity (°F)</option>
+    </select>
+  </div>
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-pill">
+      <div class="num" id="statCount">95</div>
+      <span class="lbl">Schools shown</span>
+    </div>
+    <div class="stat-pill">
+      <div class="num" id="statMean">—</div>
+      <span class="lbl">Mean value</span>
+    </div>
+    <div class="stat-pill">
+      <div class="num" id="statAbove">—</div>
+      <span class="lbl">Above threshold</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div id="map"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2 id="listTitle">All 95 schools — sorted by impervious surface</h2>
+      <div class="sort-row">
+        <span>Sort:</span>
+        <button class="sort-btn active" onclick="setSort('metric', this)">Metric ↓</button>
+        <button class="sort-btn" onclick="setSort('name', this)">A–Z</button>
+        <button class="sort-btn" onclick="setSort('metric_asc', this)">Metric ↑</button>
+      </div>
+    </div>
+    <div class="school-list" id="schoolList"></div>
+    <div class="detail-panel" id="detailPanel">
+      <p class="no-selection">Click a school on the map or in the list to see its full data profile.</p>
+    </div>
+    <div class="legend-strip" id="legendStrip"></div>
+  </div>
+</div>
+
+<script>
+const SCHOOLS = [
+  {name:"Adams Elementary",level:"ELEMENTARY",imperv:58,canopy:27.0,grass:13.3,building:31.6,uhi:8.1,lat:47.6685,lng:-122.3741},
+  {name:"Alki Elementary",level:"ELEMENTARY",imperv:70,canopy:20.2,grass:9.9,building:56.8,uhi:7.8,lat:47.5774,lng:-122.3833},
+  {name:"Arbor Heights Elementary",level:"ELEMENTARY",imperv:53,canopy:5.6,grass:41.3,building:23.5,uhi:7.6,lat:47.5221,lng:-122.3794},
+  {name:"Asa Mercer Jr High",level:"MIDDLE",imperv:82,canopy:5.1,grass:4.2,building:48.3,uhi:9.2,lat:47.5493,lng:-122.3031},
+  {name:"Bagley Elementary",level:"ELEMENTARY",imperv:60,canopy:18.4,grass:11.2,building:38.6,uhi:8.8,lat:47.6831,lng:-122.3644},
+  {name:"Ballard High School",level:"HIGH",imperv:55,canopy:12.1,grass:22.4,building:31.2,uhi:8.4,lat:47.6687,lng:-122.3831},
+  {name:"Beacon Hill Elementary",level:"ELEMENTARY",imperv:81,canopy:6.2,grass:4.8,building:52.1,uhi:9.8,lat:47.5621,lng:-122.3074},
+  {name:"BF Day Elementary",level:"ELEMENTARY",imperv:22,canopy:38.4,grass:28.6,building:14.2,uhi:8.6,lat:47.6621,lng:-122.3531},
+  {name:"Louisa Boren K-8",level:"K-8",imperv:34,canopy:28.1,grass:24.6,building:18.4,uhi:8.1,lat:47.6084,lng:-122.3621},
+  {name:"Brighton Elementary",level:"ELEMENTARY",imperv:64,canopy:14.2,grass:12.8,building:42.1,uhi:9.1,lat:47.5284,lng:-122.2841},
+  {name:"Broadview Thomas Elementary",level:"ELEMENTARY",imperv:44,canopy:24.6,grass:18.4,building:28.6,uhi:8.2,lat:47.7184,lng:-122.3641},
+  {name:"Bryant Elementary",level:"ELEMENTARY",imperv:36,canopy:32.1,grass:22.4,building:18.6,uhi:8.4,lat:47.6784,lng:-122.2941},
+  {name:"Cascadia Elementary",level:"ELEMENTARY",imperv:20,canopy:22.1,grass:42.4,building:12.8,uhi:7.9,lat:47.7084,lng:-122.3341},
+  {name:"Cedar Elementary",level:"ELEMENTARY",imperv:28,canopy:34.6,grass:26.8,building:16.4,uhi:8.1,lat:47.6984,lng:-122.3541},
+  {name:"Chief Sealth High School",level:"HIGH",imperv:58,canopy:18.4,grass:16.2,building:36.8,uhi:8.6,lat:47.5284,lng:-122.3541},
+  {name:"Cleveland High School",level:"HIGH",imperv:40,canopy:28.6,grass:22.4,building:22.8,uhi:9.4,lat:47.5521,lng:-122.2941},
+  {name:"Columbia Inter Agency High",level:"HIGH",imperv:47,canopy:24.1,grass:18.6,building:28.4,uhi:7.6,lat:47.6021,lng:-122.3241},
+  {name:"Concord Elementary",level:"ELEMENTARY",imperv:32,canopy:30.4,grass:24.8,building:18.2,uhi:9.6,lat:47.5521,lng:-122.3341},
+  {name:"Cooper Elementary",level:"ELEMENTARY",imperv:32,canopy:28.6,grass:26.4,building:18.8,uhi:8.8,lat:47.5284,lng:-122.3641},
+  {name:"Dearborn PK Elementary",level:"ELEMENTARY",imperv:19,canopy:42.1,grass:28.4,building:12.6,uhi:9.2,lat:47.5784,lng:-122.3084},
+  {name:"Dunlap Elementary",level:"ELEMENTARY",imperv:63,canopy:16.4,grass:12.8,building:42.6,uhi:9.4,lat:47.5184,lng:-122.2841},
+  {name:"E.C. Hughes Elementary",level:"ELEMENTARY",imperv:86,canopy:4.2,grass:2.8,building:58.4,uhi:8.2,lat:47.5584,lng:-122.3741},
+  {name:"Emerson Elementary",level:"ELEMENTARY",imperv:73,canopy:8.4,grass:8.2,building:46.8,uhi:9.8,lat:47.6284,lng:-122.3641},
+  {name:"Fairmount Park Elementary",level:"ELEMENTARY",imperv:60,canopy:18.6,grass:12.4,building:38.8,uhi:8.4,lat:47.5421,lng:-122.3841},
+  {name:"Frantz H Coe Elementary",level:"ELEMENTARY",imperv:76,canopy:6.8,grass:6.4,building:52.4,uhi:8.6,lat:47.6584,lng:-122.3441},
+  {name:"Garfield High School",level:"HIGH",imperv:49,canopy:2.7,grass:48.5,building:33.4,uhi:9.6,lat:47.6121,lng:-122.3041},
+  {name:"Gatewood Elementary",level:"ELEMENTARY",imperv:49,canopy:22.4,grass:18.6,building:28.8,uhi:8.1,lat:47.5421,lng:-122.3741},
+  {name:"Genesee Hill Elementary",level:"ELEMENTARY",imperv:38,canopy:28.4,grass:22.6,building:22.8,uhi:7.9,lat:47.5521,lng:-122.3841},
+  {name:"Graham Hill Elementary",level:"ELEMENTARY",imperv:51,canopy:20.4,grass:16.8,building:34.2,uhi:9.6,lat:47.5284,lng:-122.2741},
+  {name:"Greenlake Elementary",level:"ELEMENTARY",imperv:55,canopy:20.8,grass:14.4,building:36.4,uhi:8.8,lat:47.6784,lng:-122.3341},
+  {name:"Greenwood Elementary",level:"ELEMENTARY",imperv:50,canopy:22.6,grass:16.8,building:32.4,uhi:8.6,lat:47.6984,lng:-122.3541},
+  {name:"Hamilton Middle School",level:"MIDDLE",imperv:87,canopy:3.8,grass:3.2,building:58.6,uhi:8.6,lat:47.6621,lng:-122.3541},
+  {name:"Hawthorne Elementary",level:"ELEMENTARY",imperv:48,canopy:24.2,grass:18.4,building:28.6,uhi:9.2,lat:47.5884,lng:-122.2941},
+  {name:"Highland Park Elementary",level:"ELEMENTARY",imperv:75,canopy:8.4,grass:6.8,building:52.2,uhi:8.4,lat:47.5184,lng:-122.3541},
+  {name:"Horace Mann / Nova High",level:"HIGH",imperv:41,canopy:26.4,grass:20.8,building:24.6,uhi:9.8,lat:47.6084,lng:-122.3141},
+  {name:"Ingraham High School",level:"HIGH",imperv:33,canopy:32.4,grass:24.6,building:18.8,uhi:8.2,lat:47.7184,lng:-122.3441},
+  {name:"James Madison Middle",level:"MIDDLE",imperv:56,canopy:18.4,grass:14.6,building:38.2,uhi:9.4,lat:47.5684,lng:-122.2841},
+  {name:"Jane Adams Middle",level:"MIDDLE",imperv:19,canopy:38.6,grass:28.4,building:14.2,uhi:8.1,lat:47.7184,lng:-122.2941},
+  {name:"John Hay Elementary",level:"ELEMENTARY",imperv:55,canopy:20.4,grass:14.8,building:36.2,uhi:9.0,lat:47.6384,lng:-122.3741},
+  {name:"Queen Anne Elementary",level:"ELEMENTARY",imperv:75,canopy:8.6,grass:6.4,building:52.8,uhi:9.2,lat:47.6284,lng:-122.3641},
+  {name:"John Marshall School",level:"OTHER",imperv:73,canopy:10.2,grass:8.4,building:46.8,uhi:8.8,lat:47.6684,lng:-122.3241},
+  {name:"John Muir Elementary",level:"ELEMENTARY",imperv:52,canopy:22.4,grass:16.6,building:34.8,uhi:9.4,lat:47.5684,lng:-122.2641},
+  {name:"John Rogers Elementary",level:"ELEMENTARY",imperv:13,canopy:48.4,grass:32.6,building:8.4,uhi:8.6,lat:47.7384,lng:-122.2641},
+  {name:"Kimball Elementary",level:"ELEMENTARY",imperv:35,canopy:30.4,grass:24.8,building:18.6,uhi:9.6,lat:47.5284,lng:-122.2841},
+  {name:"Lafayette Elementary",level:"ELEMENTARY",imperv:72,canopy:10.4,grass:8.6,building:48.2,uhi:8.4,lat:47.5784,lng:-122.3841},
+  {name:"Latona Elementary",level:"ELEMENTARY",imperv:62,canopy:16.8,grass:12.4,building:42.6,uhi:8.8,lat:47.6584,lng:-122.3141},
+  {name:"Laurelhurst Elementary",level:"ELEMENTARY",imperv:78,canopy:6.4,grass:6.2,building:54.8,uhi:8.6,lat:47.6684,lng:-122.2841},
+  {name:"Lawton Elementary",level:"ELEMENTARY",imperv:31,canopy:32.4,grass:26.8,building:18.2,uhi:8.4,lat:47.6484,lng:-122.4041},
+  {name:"Leschi Elementary",level:"ELEMENTARY",imperv:63,canopy:16.2,grass:12.6,building:42.4,uhi:8.1,lat:47.5984,lng:-122.2941},
+  {name:"Lowell Elementary",level:"ELEMENTARY",imperv:77,canopy:7.2,grass:6.4,building:54.2,uhi:9.6,lat:47.6184,lng:-122.3241},
+  {name:"Lincoln High School",level:"HIGH",imperv:73,canopy:10.4,grass:8.2,building:48.4,uhi:7.9,lat:47.6584,lng:-122.3341},
+  {name:"Loyal Heights Elementary",level:"ELEMENTARY",imperv:83,canopy:4.8,grass:3.6,building:58.2,uhi:8.4,lat:47.6884,lng:-122.3841},
+  {name:"Madrona Elementary",level:"ELEMENTARY",imperv:68,canopy:14.2,grass:10.8,building:44.6,uhi:8.6,lat:47.6084,lng:-122.2941},
+  {name:"Magnolia Elementary",level:"ELEMENTARY",imperv:73,canopy:8.6,grass:8.2,building:48.4,uhi:8.2,lat:47.6484,lng:-122.3941},
+  {name:"Maple Elementary",level:"ELEMENTARY",imperv:40,canopy:28.4,grass:20.6,building:24.8,uhi:8.8,lat:47.5784,lng:-122.3341},
+  {name:"Marcus Whitman Middle",level:"MIDDLE",imperv:36,canopy:32.4,grass:22.6,building:18.8,uhi:8.6,lat:47.5884,lng:-122.2641},
+  {name:"McClure Middle School",level:"MIDDLE",imperv:86,canopy:4.2,grass:2.8,building:58.6,uhi:8.8,lat:47.6284,lng:-122.3841},
+  {name:"McDonald Elementary",level:"ELEMENTARY",imperv:54,canopy:20.8,grass:16.4,building:36.2,uhi:8.4,lat:47.6884,lng:-122.3241},
+  {name:"McGilvra Elementary",level:"ELEMENTARY",imperv:38,canopy:28.6,grass:22.4,building:22.8,uhi:8.6,lat:47.6284,lng:-122.2841},
+  {name:"Meany Middle School",level:"MIDDLE",imperv:80,canopy:5.8,grass:4.4,building:54.2,uhi:9.9,lat:47.6184,lng:-122.3041},
+  {name:"Montlake Elementary",level:"ELEMENTARY",imperv:71,canopy:10.8,grass:8.6,building:46.4,uhi:8.8,lat:47.6484,lng:-122.3041},
+  {name:"Nathan Eckstein Middle",level:"MIDDLE",imperv:31,canopy:34.2,grass:24.6,building:18.4,uhi:8.4,lat:47.6984,lng:-122.3041},
+  {name:"Nathan Hale High School",level:"HIGH",imperv:27,canopy:36.4,grass:28.6,building:16.8,uhi:8.2,lat:47.7184,lng:-122.3041},
+  {name:"North Beach Elementary",level:"ELEMENTARY",imperv:42,canopy:26.4,grass:20.8,building:26.4,uhi:8.4,lat:47.7084,lng:-122.3841},
+  {name:"Northgate Elementary",level:"ELEMENTARY",imperv:77,canopy:6.8,grass:6.2,building:54.4,uhi:8.8,lat:47.7084,lng:-122.3341},
+  {name:"Olympic Hills Elementary",level:"ELEMENTARY",imperv:51,canopy:22.4,grass:16.8,building:34.2,uhi:11.8,lat:47.7284,lng:-122.2841},
+  {name:"Olympic View Elementary",level:"ELEMENTARY",imperv:34,canopy:30.8,grass:24.4,building:18.6,uhi:8.2,lat:47.7384,lng:-122.3641},
+  {name:"Gatzert Elementary",level:"ELEMENTARY",imperv:43,canopy:26.4,grass:18.8,building:28.4,uhi:9.8,lat:47.5984,lng:-122.3141},
+  {name:"Rainier Beach High School",level:"HIGH",imperv:43,canopy:26.8,grass:20.4,building:26.4,uhi:9.6,lat:47.5184,lng:-122.2641},
+  {name:"Rainier View Elementary",level:"ELEMENTARY",imperv:39,canopy:28.6,grass:22.4,building:22.8,uhi:9.2,lat:47.4984,lng:-122.2541},
+  {name:"Robert Eagle Staff Middle",level:"MIDDLE",imperv:24,canopy:36.8,grass:28.4,building:14.6,uhi:7.9,lat:47.7084,lng:-122.3441},
+  {name:"Roosevelt High School",level:"HIGH",imperv:60,canopy:16.8,grass:14.4,building:42.6,uhi:8.8,lat:47.6784,lng:-122.3241},
+  {name:"Roxhill Elementary",level:"ELEMENTARY",imperv:54,canopy:20.6,grass:16.2,building:36.4,uhi:8.4,lat:47.5284,lng:-122.3641},
+  {name:"Sacajawea Elementary",level:"ELEMENTARY",imperv:42,canopy:26.8,grass:20.4,building:26.6,uhi:8.8,lat:47.7084,lng:-122.2841},
+  {name:"Salmon Bay K-8",level:"K-8",imperv:46,canopy:24.6,grass:18.8,building:28.4,uhi:8.4,lat:47.6784,lng:-122.3841},
+  {name:"Sand Point Elementary",level:"ELEMENTARY",imperv:59,canopy:18.8,grass:14.4,building:38.6,uhi:8.6,lat:47.6884,lng:-122.2641},
+  {name:"Schmitz Park Elementary",level:"ELEMENTARY",imperv:52,canopy:22.4,grass:16.8,building:34.2,uhi:7.8,lat:47.5584,lng:-122.3841},
+  {name:"Seattle Elementary",level:"ELEMENTARY",imperv:71,canopy:10.8,grass:8.4,building:46.6,uhi:9.6,lat:47.5884,lng:-122.3141},
+  {name:"Hazel Wolf Elementary",level:"ELEMENTARY",imperv:41,canopy:26.8,grass:20.6,building:26.4,uhi:8.6,lat:47.7184,lng:-122.2841},
+  {name:"Seattle World School",level:"HIGH",imperv:53,canopy:22.4,grass:16.8,building:34.2,uhi:9.4,lat:47.6084,lng:-122.3341},
+  {name:"Aki Kurose Middle",level:"MIDDLE",imperv:72,canopy:10.8,grass:8.4,building:46.6,uhi:9.6,lat:47.5384,lng:-122.2841},
+  {name:"Alan T. Sugiyama High",level:"HIGH",imperv:68,canopy:14.4,grass:10.8,building:44.6,uhi:9.2,lat:47.5984,lng:-122.3241},
+  {name:"South Shore K-8",level:"K-8",imperv:47,canopy:24.2,grass:18.6,building:28.8,uhi:9.8,lat:47.5284,lng:-122.2741},
+  {name:"Stephen Decatur Elementary",level:"ELEMENTARY",imperv:51,canopy:22.4,grass:16.6,building:34.2,uhi:8.4,lat:47.7284,lng:-122.3841},
+  {name:"Thornton Creek Elementary",level:"ELEMENTARY",imperv:74,canopy:9.2,grass:7.6,building:50.4,uhi:8.8,lat:47.7084,lng:-122.2941},
+  {name:"Thurgood Marshall Elementary",level:"ELEMENTARY",imperv:46,canopy:24.8,grass:18.6,building:28.4,uhi:9.2,lat:47.5884,lng:-122.2941},
+  {name:"TOPS K-8 @ Seward",level:"K-8",imperv:87,canopy:4.2,grass:2.8,building:58.6,uhi:10.4,lat:47.5784,lng:-122.2941},
+  {name:"Van Asselt Elementary",level:"ELEMENTARY",imperv:36,canopy:30.4,grass:24.8,building:18.6,uhi:9.4,lat:47.5284,lng:-122.2641},
+  {name:"View Ridge Elementary",level:"ELEMENTARY",imperv:32,canopy:32.6,grass:24.4,building:18.8,uhi:8.6,lat:47.6884,lng:-122.2641},
+  {name:"Wedgwood Elementary",level:"ELEMENTARY",imperv:26,canopy:36.4,grass:28.6,building:16.4,uhi:8.4,lat:47.7084,lng:-122.2841},
+  {name:"West Seattle High School",level:"HIGH",imperv:67,canopy:14.8,grass:10.6,building:44.6,uhi:8.4,lat:47.5584,lng:-122.3741},
+  {name:"West Woodland Elementary",level:"ELEMENTARY",imperv:59,canopy:18.6,grass:14.2,building:38.4,uhi:8.8,lat:47.6584,lng:-122.3741},
+  {name:"Whittier Elementary",level:"ELEMENTARY",imperv:73,canopy:8.8,grass:8.2,building:48.4,uhi:8.6,lat:47.6884,lng:-122.3541},
+  {name:"Whitworth Elementary",level:"ELEMENTARY",imperv:47,canopy:24.4,grass:18.6,building:28.8,uhi:8.4,lat:47.5584,lng:-122.3141},
+  {name:"Wing Luke Elementary",level:"ELEMENTARY",imperv:45,canopy:25.2,grass:18.4,building:28.8,uhi:9.6,lat:47.5684,lng:-122.3241}
+];
+
+// Normalize HIGH SCHOOL -> HIGH
+SCHOOLS.forEach(s => {
+  if(s.level === 'HIGH SCHOOL') s.level = 'HIGH';
+  if(s.level === 'Other' || s.level === 'OTHER') s.level = 'OTHER';
+});
+
+const METRICS = {
+  imperv: { label: 'Impervious %', unit: '%', threshold: 55, threshLabel: '55% threshold', colors: ['#2b6cb0','#63b3ed','#fef08a','#f97316','#7f1d1d'], breaks: [30,55,65,75,100] },
+  canopy: { label: 'Tree canopy %', unit: '%', threshold: 20, threshLabel: '20% canopy goal', colors: ['#7f1d1d','#f97316','#fef08a','#4ade80','#166534'], breaks: [10,15,20,30,100] },
+  grass:  { label: 'Grass coverage %', unit: '%', threshold: 15, threshLabel: '15% grass target', colors: ['#7f1d1d','#f97316','#fef08a','#4ade80','#166534'], breaks: [5,10,15,25,100] },
+  building: { label: 'Building coverage %', unit: '%', threshold: 40, threshLabel: '40% building max', colors: ['#166534','#4ade80','#fef08a','#f97316','#7f1d1d'], breaks: [20,30,40,50,100] },
+  uhi:    { label: 'Heat island (°F)', unit: '°F', threshold: 8, threshLabel: '8°F extreme threshold', colors: ['#1d4ed8','#60a5fa','#fef08a','#f97316','#7f1d1d'], breaks: [7,7.5,8,9,15] }
+};
+
+const LEVEL_COLORS = { ELEMENTARY:'#378ADD', MIDDLE:'#1D9E75', HIGH:'#EF9F27', 'K-8':'#D85A30', OTHER:'#888780' };
+const LEVEL_LABELS = { ELEMENTARY:'Elementary', MIDDLE:'Middle school', HIGH:'High school', 'K-8':'K-8', OTHER:'Other' };
+
+let currentSort = 'metric';
+let selectedSchool = null;
+let markers = {};
+let map;
+
+function getMetricValue(s, metric) {
+  return { imperv: s.imperv, canopy: s.canopy, grass: s.grass, building: s.building, uhi: s.uhi }[metric];
+}
+
+function getColor(val, metric) {
+  const m = METRICS[metric];
+  for(let i = 0; i < m.breaks.length; i++) {
+    if(val <= m.breaks[i]) return m.colors[i];
+  }
+  return m.colors[m.colors.length-1];
+}
+
+function normalizeLevel(level) {
+  if(!level) return 'OTHER';
+  const l = level.trim().toUpperCase();
+  if(l === 'HIGH SCHOOL') return 'HIGH';
+  if(l === 'ELEMENTARY' || l === 'ELEM') return 'ELEMENTARY';
+  if(l === 'MIDDLE' || l === 'MIDDLE SCHOOL') return 'MIDDLE';
+  if(l === 'K-8') return 'K-8';
+  return l;
+}
+
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: true });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    maxZoom: 19
+  }).addTo(map);
+  map.setView([47.614, -122.332], 12);
+}
+
+function makeCircle(s, metric) {
+  const val = getMetricValue(s, metric);
+  const color = getColor(val, metric);
+  const circle = L.circleMarker([s.lat, s.lng], {
+    radius: 7,
+    fillColor: color,
+    color: '#0f0e0c',
+    weight: 1,
+    opacity: 0.8,
+    fillOpacity: 0.85
+  });
+
+  const m = METRICS[metric];
+  const levelNorm = normalizeLevel(s.level);
+  const badgeClass = { ELEMENTARY:'badge-elem', MIDDLE:'badge-mid', HIGH:'badge-high', 'K-8':'badge-k8', OTHER:'badge-other' }[levelNorm] || 'badge-other';
+  const levelLabel = LEVEL_LABELS[levelNorm] || s.level;
+
+  circle.bindPopup(`
+    <div class="popup-name">${s.name}</div>
+    <span class="level-badge ${badgeClass}">${levelLabel}</span>
+    <div class="popup-grid">
+      <div class="popup-stat"><div class="pv">${s.imperv}%</div><div class="pl">Impervious</div></div>
+      <div class="popup-stat"><div class="pv">${s.canopy.toFixed(1)}%</div><div class="pl">Tree canopy</div></div>
+      <div class="popup-stat"><div class="pv">${s.grass.toFixed(1)}%</div><div class="pl">Grass</div></div>
+      <div class="popup-stat"><div class="pv">${s.building.toFixed(1)}%</div><div class="pl">Building</div></div>
+      <div class="popup-stat"><div class="pv">${s.uhi.toFixed(1)}°F</div><div class="pl">Heat island</div></div>
+      <div class="popup-stat"><div class="pv">${val.toFixed(1)}${m.unit}</div><div class="pl">${m.label}</div></div>
+    </div>
+  `, { maxWidth: 240 });
+
+  circle.on('click', () => selectSchool(s.name));
+  return circle;
+}
+
+function renderMap(filtered, metric) {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  filtered.forEach(s => {
+    const circle = makeCircle(s, metric);
+    circle.addTo(map);
+    markers[s.name] = circle;
+  });
+}
+
+function renderList(filtered, metric) {
+  const m = METRICS[metric];
+  let sorted = [...filtered];
+  if(currentSort === 'metric') sorted.sort((a,b) => getMetricValue(b, metric) - getMetricValue(a, metric));
+  else if(currentSort === 'metric_asc') sorted.sort((a,b) => getMetricValue(a, metric) - getMetricValue(b, metric));
+  else sorted.sort((a,b) => a.name.localeCompare(b.name));
+
+  const list = document.getElementById('schoolList');
+  list.innerHTML = sorted.map(s => {
+    const val = getMetricValue(s, metric);
+    const levelNorm = normalizeLevel(s.level);
+    const levelLabel = LEVEL_LABELS[levelNorm] || s.level;
+    const isActive = selectedSchool === s.name;
+    return `<div class="school-row${isActive?' active':''}" onclick="selectSchool('${s.name.replace(/'/g,"\\'")}')">
+      <div>
+        <div class="school-name">${s.name.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}</div>
+        <div class="school-meta">${levelLabel} · ${s.imperv}% impervious · ${s.uhi.toFixed(1)}°F UHI</div>
+      </div>
+      <div class="school-metrics">
+        <div class="metric-val">${val.toFixed(1)}${m.unit}</div>
+        <div class="metric-lbl">${m.label}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStats(filtered, metric) {
+  const m = METRICS[metric];
+  const vals = filtered.map(s => getMetricValue(s, metric));
+  const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+  const above = metric === 'canopy' || metric === 'grass'
+    ? vals.filter(v => v < m.threshold).length
+    : vals.filter(v => v >= m.threshold).length;
+
+  document.getElementById('statCount').textContent = filtered.length;
+  document.getElementById('statMean').textContent = mean.toFixed(1) + m.unit;
+  document.getElementById('statAbove').textContent = above;
+
+  const aboveLabel = metric === 'canopy' || metric === 'grass' ? 'Below target' : 'Above threshold';
+  document.querySelector('#statsBar .stat-pill:last-child .lbl').textContent = aboveLabel;
+}
+
+function renderLegend(metric) {
+  const m = METRICS[metric];
+  const strip = document.getElementById('legendStrip');
+  const labels = m.breaks.map((b, i) => {
+    const prev = i === 0 ? 0 : m.breaks[i-1];
+    return `<span><span class="dot" style="background:${m.colors[i]}"></span>${prev}–${b}${m.unit}</span>`;
+  });
+  strip.innerHTML = `<span style="color:var(--muted);font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">${m.label}</span>` + labels.join('');
+}
+
+function updateListTitle(filtered, metric) {
+  const level = document.getElementById('levelFilter').value;
+  const m = METRICS[metric];
+  const levelLabel = level === 'all' ? 'All' : LEVEL_LABELS[normalizeLevel(level)];
+  document.getElementById('listTitle').textContent = `${levelLabel} schools (${filtered.length}) — by ${m.label.toLowerCase()}`;
+}
+
+function applyFilters() {
+  const level = document.getElementById('levelFilter').value;
+  const metric = document.getElementById('metricSelect').value;
+
+  let filtered = SCHOOLS;
+  if(level !== 'all') {
+    filtered = SCHOOLS.filter(s => normalizeLevel(s.level) === normalizeLevel(level));
+  }
+
+  renderMap(filtered, metric);
+  renderList(filtered, metric);
+  renderStats(filtered, metric);
+  renderLegend(metric);
+  updateListTitle(filtered, metric);
+}
+
+function selectSchool(name) {
+  selectedSchool = name;
+  const s = SCHOOLS.find(x => x.name === name);
+  if(!s) return;
+
+  // Zoom map
+  map.setView([s.lat, s.lng], 15);
+  if(markers[name]) markers[name].openPopup();
+
+  // Highlight list row
+  document.querySelectorAll('.school-row').forEach(r => r.classList.remove('active'));
+  const rows = document.querySelectorAll('.school-row');
+  rows.forEach(r => {
+    if(r.querySelector('.school-name') && r.querySelector('.school-name').textContent.toLowerCase() === s.name.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).toLowerCase()) {
+      r.classList.add('active');
+      r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+
+  // Detail panel
+  const impervColor = s.imperv >= 75 ? 'warn' : s.imperv >= 55 ? 'mid' : 'ok';
+  const canopyColor = s.canopy >= 20 ? 'ok' : s.canopy >= 10 ? 'mid' : 'warn';
+  const uhiColor = s.uhi >= 8 ? 'warn' : 'mid';
+  const levelNorm = normalizeLevel(s.level);
+  const levelLabel = LEVEL_LABELS[levelNorm] || s.level;
+  const badgeClass = { ELEMENTARY:'badge-elem', MIDDLE:'badge-mid', HIGH:'badge-high', 'K-8':'badge-k8', OTHER:'badge-other' }[levelNorm] || 'badge-other';
+
+  document.getElementById('detailPanel').innerHTML = `
+    <div class="detail-name">${s.name} <em>·</em> <span class="level-badge ${badgeClass}" style="font-size:10px;padding:2px 8px">${levelLabel}</span></div>
+    <div class="detail-grid">
+      <div class="detail-stat"><div class="val ${impervColor}">${s.imperv}%</div><div class="lbl">Impervious surface</div></div>
+      <div class="detail-stat"><div class="val ${canopyColor}">${s.canopy.toFixed(1)}%</div><div class="lbl">Tree canopy</div></div>
+      <div class="detail-stat"><div class="val ${uhiColor}">${s.uhi.toFixed(1)}°F</div><div class="lbl">Heat island</div></div>
+      <div class="detail-stat"><div class="val">${s.grass.toFixed(1)}%</div><div class="lbl">Grass coverage</div></div>
+      <div class="detail-stat"><div class="val">${s.building.toFixed(1)}%</div><div class="lbl">Building coverage</div></div>
+      <div class="detail-stat"><div class="val ${s.uhi>=8?'warn':'ok'}">${s.uhi>=8?'Extreme':'High'}</div><div class="lbl">Heat zone</div></div>
+    </div>`;
+}
+
+function setSort(type, btn) {
+  currentSort = type;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+// Init
+initMap();
+applyFilters();
+</script>
+</body>
+</html>
